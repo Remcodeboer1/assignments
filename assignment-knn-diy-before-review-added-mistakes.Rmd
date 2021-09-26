@@ -1,0 +1,140 @@
+---
+title: "Assigment - kNN DIY"
+author:
+  - name author here - Author
+  - name reviewer here - Reviewer
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+   html_notebook:
+    toc: true
+    toc_depth: 2
+---
+
+
+```{r}
+library(tidyverse)
+library(googlesheets4)
+library(class)
+library(caret)
+library(magrittr)
+
+```
+
+---
+
+Choose a suitable dataset from [this](https://github.com/HAN-M3DM-Data-Mining/assignments/tree/master/datasets) folder and train  your own kNN model. Follow all the steps from the CRISP-DM model.
+
+
+## Business Understanding
+
+Before we start working on the dataset it's important to understand what the data means in a business side perspective.
+The data in the data set is about occupancy, it tracks whether something is or isn't occupied and tracks certain variables along with the occupancy to determine if certain variables affect the occupancy. These are data like: temperature, humidity,light and date.
+
+```{R}
+url <- "https://raw.githubusercontent.com/HAN-M3DM-Data-Mining/assignments/master/datasets/KNN-occupancy.csv"
+rawdf <- read.csv(url)
+
+```
+
+## Data Understanding
+Before we start preparing the data it's important to know the data you are working with.
+It is important that you get a feel for the data, because this will help increase your workflow.
+
+```{R}
+
+##get a quick overview of the data
+str(rawdf)
+## First few colums of the data
+head(rawdf)
+## Summary of the data
+summary(rawDF)
+```
+
+rawdf has a total of 8143 observations and a total of 7 variables.
+
+
+
+## Data Preparation
+Now that we understand the data we need to clean/prepare the data to be able to model the data.
+The first colum, date isn't relevant for the calculations and that's why we will remove this column
+
+```{R}
+cleandf <- rawdf[-1]
+head(cleandf)
+
+cntOcc <- table(cleandf$Occupancy) ## Counting the amount of 0's and 1's in occupancy
+propOcc <- round(prop.table(cntOcc) * 100 , digits = 1) ## getting the distribution of 1's and 0's
+
+cleandf[1:4] <- round(cleandf[1:6], digits = 1) ## Rounding data for better visibility
+cleandf$HumidityRatio <- round(cleandf$HumidityRatio, digits = 6) ## Rounding data for better visibility
+
+cntOcc
+propOcc
+```
+
+There are 6414 0's in occupancy and 1729 1's
+Its a distribution of 78.8 % and 21.2 %
+
+```{r}
+cleandf$Occupancy <- factor(cleandf$Occupancy, levels = c("1","0"), labels = c("Occupied", "Unoccupied")) %>% relevel("Unoccuped")
+
+head(cleandf, 10)
+
+```
+Lets take a look at a summary of the cleaned data
+
+```{R}
+summary(cleandf)
+
+```
+
+the 5 different variables have a big difference in range. To make sure CO2 won't have a larger impact than the other variables on the calculation than the rest we will need to normalize the values.
+
+```{r}
+Normalise <- function(x) { 
+  return ((x - min(x)) / (max(x) - min(x))) 
+}
+```
+
+```{r}
+
+cleandf_n <- sapply(1:5,
+                    function(x)  {
+  normalize(cleandf[,x])
+}) %>% as.data.frame()
+
+summary(cleandf_n[c(1:5)])
+```
+
+```{r}
+
+traindf_feat <- cleandf_n[1:4000,  ]
+testdf_feat <- cleandf_n[4001:8143  ]
+
+traindf_labels <- as.data.frame(cleandf[1:4000,  6])
+testdf_labels <- as.data.frame(cleandf[4001:8143,  6])
+
+```
+
+## Modeling
+
+```{r}
+
+Kcalc <- round(sqrt(nrow(cleandf_n)), digits = 0)
+```
+
+```{r}
+cleandf_test_pred <- knn(train = as.matrix(traindf_feat), test = as.matrix(testdf_feat), cl = as.matrix(traindf_labels), k = Kcalc)
+
+head(cleandf_test_pred)
+```
+
+## Evaluation and Deployment
+
+```{r}
+confusionMatrix(cleandf_test_pred, testdf_labels[[1]], positive = null, dnn = c("Prediction", "True"))
+```
+
+
+
+
